@@ -1,0 +1,999 @@
+{
+	"name": "AIML_1_EDA_Customer_Churn_Prediction",
+	"properties": {
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "fsi",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2
+		},
+		"metadata": {
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/4f560746-383b-468f-bdfa-bc5acc08a8f1/resourceGroups/DDiB-FSI-Lab/providers/Microsoft.Synapse/workspaces/synapsefsibnkhackbrku4oli5l4c2/bigDataPools/fsi",
+				"name": "fsi",
+				"type": "Spark",
+				"endpoint": "https://synapsefsibnkhackbrku4oli5l4c2.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/fsi",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "2.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28
+			}
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Exploratory Data Analysis and Data Preperation for a Customer Churn Dataset"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Introduction\r\n",
+					"In this example we show how to do Exploratory Data Analysis, Data Preparation and Feature Engineering for a dataset describing customer churn for a retail bank."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## *****For Demonstration purpose only, Please customize as per your enterprise security needs and compliances***** \n",
+					"Disclaimer: By accessing this code, you acknowledge the code is made available for presentation and demonstration purposes only and that the code: (1) is not subject to SOC 1 and SOC 2 compliance audits; (2) is not designed or intended to be a substitute for the professional advice, diagnosis, treatment, or judgment of a certified financial services professional; (3) is not designed, intended or made available as a medical device; and (4) is not designed or intended to be a substitute for professional medical advice, diagnosis, treatment or judgement. Do not use this code to replace, substitute, or provide professional financial advice or judgment, or to replace, substitute or provide medical advice, diagnosis, treatment or judgement. You are solely responsible for ensuring the regulatory, legal, and/or contractual compliance of any use of the code, including obtaining any authorizations or consents, and any solution you choose to build that incorporates this code in whole or in part. \n"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Importing required libraries and setting up connection to Blob storage"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"import matplotlib.pyplot as plt \r\n",
+					"import seaborn as sns\r\n",
+					"import numpy as np\r\n",
+					"from azure.storage.blob import ContainerClient, BlobClient\r\n",
+					"import pandas as pd\r\n",
+					"from io import BytesIO\r\n",
+					"\r\n",
+					"CONNECTIONSTRING = 'DefaultEndpointsProtocol=https;AccountName=stfsiprod;AccountKey=WVrgvqHHELb6+XKiurG3qiPyNf48vF2L5LGpQPtR5n2J6VHPdSex6VN1H7a+73PNFRomme11g/1mVdl32kBiLA==;EndpointSuffix=core.windows.net'\r\n",
+					"CONTAINER_NAME = 'retail-banking-customer-churn'\r\n",
+					"\r\n",
+					"BLOBNAME = 'retail_banking_customer_churn_data.csv'\r\n",
+					"blob = BlobClient.from_connection_string(conn_str=CONNECTIONSTRING, container_name=CONTAINER_NAME, blob_name=BLOBNAME)\r\n",
+					"blob_data = blob.download_blob()\r\n",
+					"BytesIO(blob_data.content_as_bytes())\r\n",
+					"data = pd.read_csv(BytesIO(blob_data.content_as_bytes()))"
+				],
+				"attachments": null,
+				"execution_count": 2
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Exploratory Data Analysis\r\n",
+					"\r\n",
+					"This is the initial step in Data Analysis. We are going to go through our data and try to understand it. The first thing we need to do is look at the \"head\" of the data.  The head is just the first couple rows.  This will give us a good idea of what the dataset \"looks\" like.\r\n",
+					"\r\n",
+					""
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"pd.set_option('display.max_columns',999) # show all columns\r\n",
+					"data.head(8) # show first 8 rows of data"
+				],
+				"attachments": null,
+				"execution_count": 3
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Checking for missing data\r\n",
+					"Next we will check for missing values in the data.  Missing values in the data will not allow us to properly analyze the data."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"data.isnull().sum()"
+				],
+				"attachments": null,
+				"execution_count": 4
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Data types and shape\r\n",
+					"There were no empty cells in the dataset. Next we're going to look at the \"shape\" of the dataset which is just the number of rows and columns.\r\n",
+					"\r\n",
+					"\r\n",
+					"We will also look at the data types.  This will help us when making decisions about analysis and our modeling."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"data.shape"
+				],
+				"attachments": null,
+				"execution_count": 5
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"data.dtypes"
+				],
+				"attachments": null,
+				"execution_count": 6
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Change data types\r\n",
+					"After looking at our data types we see that some of them are not what we would like them to be.  \r\n",
+					"\r\n",
+					"Next we will cast most of these columns to categorical data types. The target column 'y' will be cast to an integer and given the value 1 and 0.  This will make our analysis and modeling much easier."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"data['job'] = data.job.astype('category')\r\n",
+					"data['marital'] = data.marital.astype('category')\r\n",
+					"data['education'] = data.education.astype('category')\r\n",
+					"data['default'] = data.default.astype('category')\r\n",
+					"data['housing'] = data.housing.astype('category')\r\n",
+					"data['loan'] = data.loan.astype('category')\r\n",
+					"data['contact'] = data.contact.astype('category')\r\n",
+					"data['month'] = data.month.astype('category')\r\n",
+					"data['day_of_week'] = data.day_of_week.astype('category')\r\n",
+					"data['poutcome'] = data.poutcome.astype('category')\r\n",
+					"data['y'] = data['y'].map({'yes': 1, 'no': 0}) #Making this numerical for analysis purposes"
+				],
+				"attachments": null,
+				"execution_count": 7
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Analysis\r\n",
+					"\r\n",
+					"Now that the data has been cleaned we are ready to analyze.  This first thing we'll look at is the customer's age density.  This will show us the distribution of our customers' age."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"plt.figure(figsize=(15,10))\r\n",
+					"ax = sns.histplot(data['age'], palette='Blues', stat='density',legend=True) #Histogram for customer age\r\n",
+					"sns.kdeplot(data['age'], color='red',legend=True) #Density plot\r\n",
+					"sns.despine() #removing top and right borders\r\n",
+					"ax.set_title('Customer Age Density Plot',fontsize=25)\r\n",
+					"ax.set_xlabel('Customer Age', fontsize=18)\r\n",
+					"ax.set_ylabel('Density', fontsize=18)\r\n",
+					"plt.show()"
+				],
+				"attachments": null,
+				"execution_count": 8
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Customer Retention Analysis\r\n",
+					"\r\n",
+					"The next few graphs help us understand our customer churn based on different demographic data."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"#Customer Retention Based on Age and Profession\r\n",
+					"sns.set(style=\"white\") #Making background white\r\n",
+					"plt.figure(figsize=(25,12)) #Setting figure size\r\n",
+					"ax = sns.boxplot(x=\"job\", y=\"age\", hue=\"y\", data=data, palette=\"GnBu\", width=0.5) #Creating boxplot and setting color palette\r\n",
+					"handles, _= ax.get_legend_handles_labels()#Changing legend\r\n",
+					"ax.legend(handles, [\"Retained\", \"Churned\"])\r\n",
+					"ax.set_title('Customer Retention based on Age and Profession',fontsize=25)\r\n",
+					"ax.set_xlabel('Profession', fontsize=18)\r\n",
+					"ax.set_ylabel('Age', fontsize=18)\r\n",
+					"plt.show()"
+				],
+				"attachments": null,
+				"execution_count": 9
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"#Customer Retention Based on Age and Education\r\n",
+					"sns.set(style=\"white\")\r\n",
+					"plt.figure(figsize=(25,12))\r\n",
+					"ax = sns.boxplot(x=\"education\", y='age', hue=\"y\", data=data, palette=\"GnBu\", width=0.5)\r\n",
+					"handles, _ = ax.get_legend_handles_labels()\r\n",
+					"ax.legend(handles, [\"Retained\", \"Churned\"])\r\n",
+					"ax.set_title('Customer Retention based on Age and Education',fontsize=25)\r\n",
+					"ax.set_xlabel('Education Level', fontsize=18)\r\n",
+					"ax.set_ylabel('Age', fontsize=18)\r\n",
+					"plt.show()"
+				],
+				"attachments": null,
+				"execution_count": 10
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"#Customer Retention Based on Age and Housing\r\n",
+					"sns.set(style=\"white\")\r\n",
+					"plt.figure(figsize=(25,12))\r\n",
+					"ax = sns.boxplot(x=\"housing\", y='age', hue=\"y\", data=data, palette=\"GnBu\", width=0.5)\r\n",
+					"handles, _ = ax.get_legend_handles_labels()\r\n",
+					"ax.legend(handles, [\"Retained\", \"Churned\"])\r\n",
+					"ax.set_title('Customer Retention based on Age and Housing',fontsize=25)\r\n",
+					"ax.set_xlabel('Housing', fontsize=18)\r\n",
+					"ax.set_ylabel('Age', fontsize=18)\r\n",
+					"plt.show()"
+				],
+				"attachments": null,
+				"execution_count": 11
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Categorical Distributions\r\n",
+					"\r\n",
+					"The following graphs use different features (categories) to segment our customers.  We do this to see if we can find anything insightful or meaningful before we build our model(s)."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"#This graph breaks represents what day of the week customers were acquiried on.\r\n",
+					"days = [\"mon\", \"tue\", \"wed\", \"thu\", \"fri\"] #Create list for days of the week.  This will be x-axis\r\n",
+					"data['day_of_week'] = pd.Categorical(data.day_of_week, categories=days, ordered=True)\r\n",
+					"plt.figure(figsize=(20,10))\r\n",
+					"GroupedData=data.groupby(by='day_of_week').size() #Group data by value\r\n",
+					"sns.despine()\r\n",
+					"colors = ['lightcoral','cornflowerblue','mediumseagreen','moccasin','lightskyblue','plum','lightgray','khaki'] #Set color palette\r\n",
+					"ax = GroupedData.plot.bar(color=colors) #Plot values in a bar chart\r\n",
+					"sns.despine(left=True,bottom=True)\r\n",
+					"ax.set_title('Customer Acquisition Based on Day of the Week',fontsize=25)\r\n",
+					"ax.set_xlabel('Day of the Week', fontsize=18)\r\n",
+					"ax.set_ylabel('Customers', fontsize=18)\r\n",
+					"\r\n",
+					"plt.xticks(rotation=0) #Make bar chart vertical\r\n",
+					"plt.show()"
+				],
+				"attachments": null,
+				"execution_count": 12
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"#Education distribution\r\n",
+					"\r\n",
+					"plt.figure(figsize=(20,10))#figure size\r\n",
+					"sns.despine()\r\n",
+					"\r\n",
+					"GroupedData=data.groupby(by='education').size()#grouping values\r\n",
+					"sns.despine(left=True,bottom=True)\r\n",
+					"colors = ['lightcoral','cornflowerblue','mediumseagreen','moccasin','lightskyblue','plum','lightgray','khaki']#color palette\r\n",
+					"ax = GroupedData.plot.bar(color=colors)#plotting bar chart\r\n",
+					"ax.set_title('Customer Education Levels',fontsize=25)\r\n",
+					"ax.set_xlabel('Education Levels', fontsize=18)\r\n",
+					"ax.set_ylabel('Customers', fontsize=18)\r\n",
+					"\r\n",
+					"plt.xticks(rotation=0)\r\n",
+					"plt.show()"
+				],
+				"attachments": null,
+				"execution_count": 13
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"#Marital Status distribution\r\n",
+					"plt.figure(figsize=(25,12)) #figure size\r\n",
+					"sns.despine()\r\n",
+					"colors = ['lightcoral','cornflowerblue','mediumseagreen','moccasin','lightskyblue','plum','lightgray','khaki']#color palette\r\n",
+					"GroupedData=data.groupby(by='marital').size() #grouping by values\r\n",
+					"sns.despine(left=True,bottom=True)\r\n",
+					"ax = GroupedData.plot.bar(color=colors) #make bar chart\r\n",
+					"ax.set_title('Customer Marital Status',fontsize=25)\r\n",
+					"ax.set_xlabel('Marital Status', fontsize=18)\r\n",
+					"ax.set_ylabel('Customers', fontsize=18)\r\n",
+					"plt.xticks(rotation=0)\r\n",
+					"plt.show() #display bar chart"
+				],
+				"attachments": null,
+				"execution_count": 14
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"#Job level distribution\r\n",
+					"\r\n",
+					"plt.figure(figsize=(25,12)) #graph size\r\n",
+					"sns.despine()\r\n",
+					"colors = ['lightcoral','cornflowerblue','mediumseagreen','moccasin','lightskyblue','plum','lightgray','khaki'] #colors\r\n",
+					"GroupedData=data.groupby(by='job').size() #grouping by values\r\n",
+					"sns.despine(left=True,bottom=True)\r\n",
+					"ax = GroupedData.plot.bar(color=colors) #plotting grouped values\r\n",
+					"ax.set_title('Customer Profession',fontsize=25)\r\n",
+					"ax.set_xlabel('Profession', fontsize=18)\r\n",
+					"ax.set_ylabel('Customers', fontsize=18)\r\n",
+					"\r\n",
+					"plt.xticks(rotation=0)\r\n",
+					"plt.show() #displaying chart\r\n",
+					""
+				],
+				"attachments": null,
+				"execution_count": 15
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Correlation matrix\r\n",
+					"\r\n",
+					"We use a correlation matrix to find relationships between numerical variables.  This helps us decide which variables to keep and which to eliminate before we build our model(s)."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"# Numerical columns correlation matrix\r\n",
+					"sns.set(style=\"white\") #background color\r\n",
+					"plt.subplots(figsize=(25,12)) #graph size\r\n",
+					"matrix = np.triu(data.corr()) #build matrix\r\n",
+					"ax = sns.heatmap(data.corr(), annot=True, mask=matrix,cmap= 'coolwarm') #create heatmap and choose color palette\r\n",
+					"ax.set_title('Correlation Matrix',fontsize=25) #title\r\n",
+					"plt.show() #show matrix"
+				],
+				"attachments": null,
+				"execution_count": 16
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Customer Churn\r\n",
+					"\r\n",
+					"These remaining charts look at customer churn based on a single feature.  This will tell us if a certain feature is making it more likely that certain customers churn.  \r\n",
+					"If there is a correlation, that will help us in predicting churn in the future.\r\n",
+					""
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"fig, ax = plt.subplots(figsize=(25,12)) #build plot and set size\r\n",
+					"\r\n",
+					"ax.hist(data[data[\"y\"]==1][\"campaign\"], bins=25, alpha=0.5, rwidth=.8, color=\"blue\", label=\"Churned\") #create histogram based on our target variable (churn) and campaign\r\n",
+					"\r\n",
+					"ax.set_title('Customer Churn Based on Campaign',fontsize=25) #title and axis labels\r\n",
+					"ax.set_xlabel('Campaign', fontsize=18)\r\n",
+					"ax.set_ylabel('Customers', fontsize=18)\r\n",
+					"\r\n",
+					"ax.legend();\r\n",
+					"plt.xlim([1, 15]) #set x-axis range\r\n",
+					"plt.show() #show graph"
+				],
+				"attachments": null,
+				"execution_count": 17
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"fig, ax = plt.subplots(figsize=(25,12)) #create plot and set size\r\n",
+					"\r\n",
+					"ax.hist(data[data[\"y\"]==0][\"campaign\"], bins=25, alpha=0.5, rwidth=.4, color=\"green\", label=\"Retained\") #create histogram based on our target variable (retention) and campaign\r\n",
+					"\r\n",
+					"ax.set_title('Customer Retention Based on Campaign',fontsize=25) #axis and title labels\r\n",
+					"ax.set_xlabel('Campaign', fontsize=18)\r\n",
+					"ax.set_ylabel('Customers', fontsize=18)\r\n",
+					"\r\n",
+					"ax.legend(); #legend\r\n",
+					"plt.xlim([1, 15]) #x-axis range\r\n",
+					"plt.show() #show plot"
+				],
+				"attachments": null,
+				"execution_count": 18
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Customer Churn & Retention Density Plot\r\n",
+					"\r\n",
+					"The following chart is a depiction of the employment variation rate with respect to customer retention/churn.  Employment variation rate is an external factor and is therefore out of our control.  However, it still may be correlated to customer churn and therefore must be considered.  If a strong correlation is found, we can use this number in the future to help predict churn. We can use this type of chart for other external (and internal) variables as well."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"fig, ax = plt.subplots(figsize=(25,12)) #create subplot and set size\r\n",
+					"\r\n",
+					"sns.kdeplot(data[data[\"y\"]==1][\"emp.var.rate\"], shade=True, color=\"blue\", label=\"Churned\", ax=ax) #create churn plot, color and set transparency so both are visible when overlaid\r\n",
+					"sns.kdeplot(data[data[\"y\"]==0][\"emp.var.rate\"], shade=True, color=\"green\", label=\"Retained\", ax=ax) #same as above but for retention\r\n",
+					"\r\n",
+					"ax.set_title('Employment Variation Rate Density Plot',fontsize=25) #set title and aixs labels\r\n",
+					"ax.set_xlabel(\"Employment Variation Rate\", fontsize=18)\r\n",
+					"ax.set_ylabel('Density', fontsize=18)\r\n",
+					"\r\n",
+					"ax.legend(); #show legend\r\n",
+					"plt.show() #plot graph"
+				],
+				"attachments": null,
+				"execution_count": 19
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"fig, ax = plt.subplots(figsize=(25,12)) #create figure and set size\r\n",
+					"\r\n",
+					"ax.hist(data[data[\"y\"]==1][\"age\"], bins=(15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95), alpha=0.5, color=\"blue\", label=\"Churned\") # plot churn data and set bin size (every 5 years)\r\n",
+					"ax.hist(data[data[\"y\"]==0][\"age\"], bins=(15,20,25,30,35,40,45,50,55,60,65,70,75,80,85,90,95), alpha=0.5, color=\"green\", label=\"Retained\") # plot churn data and set bin size (every 5 years)\r\n",
+					"\r\n",
+					"ax.set_title('Customer Churn & Retention Based on Age',fontsize=25) #set title and aixs labels\r\n",
+					"ax.set_xlabel(\"Age\", fontsize=18)\r\n",
+					"ax.set_ylabel('Number of Customers', fontsize=18)\r\n",
+					"\r\n",
+					"ax.legend();\r\n",
+					"plt.show() #show plot"
+				],
+				"attachments": null,
+				"execution_count": 20
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": true
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"# Converting to nan since we need to find the mean and that cannot be computed with an empty string. It can be computed using Nan \r\n",
+					"data.replace(\"unknown\", np.nan, inplace=True) \r\n",
+					"\r\n",
+					"# Now we know that total charges has nan values\r\n",
+					"data.isna().sum()"
+				],
+				"attachments": null,
+				"execution_count": 21
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"# Defining a function to encode categorical variables\r\n",
+					"from sklearn.preprocessing import LabelEncoder\r\n",
+					"\r\n",
+					"def labelencoder(column):\r\n",
+					"    transform = LabelEncoder()\r\n",
+					"    data[column] = transform.fit_transform(data[column]) "
+				],
+				"attachments": null,
+				"execution_count": 22
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"# Applying encoding function to select categorical features\r\n",
+					"names = ['marital', 'housing', 'loan', 'contact']\r\n",
+					"for column in names:\r\n",
+					"    data[column] = data[column].astype(str)\r\n",
+					"    labelencoder(column)"
+				],
+				"attachments": null,
+				"execution_count": 23
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"# Converting selected columns to dummy variables\r\n",
+					"names = ['education', 'poutcome', 'job']\r\n",
+					"data = pd.get_dummies(data=data, columns=names)"
+				],
+				"attachments": null,
+				"execution_count": 24
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"# Dropping columns that don't seem relevant\r\n",
+					"data = data.drop(['default', 'day_of_week', 'duration', 'month', 'campaign', 'education_illiterate', 'job_housemaid', 'education_unknown', 'job_unknown'], axis=1)"
+				],
+				"attachments": null,
+				"execution_count": 25
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"show = data.tail(5)\r\n",
+					"display(show)"
+				],
+				"attachments": null,
+				"execution_count": 26
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"data.columns"
+				],
+				"attachments": null,
+				"execution_count": 27
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"# Saving feature engineered dataset for use in model building\r\n",
+					"\r\n",
+					"output = data.to_csv (index=False, header=True, encoding = \"utf-8\")\r\n",
+					"blobName = \"retail_banking_customer_churn_for_model.csv\"\r\n",
+					"blob = BlobClient.from_connection_string(conn_str=CONNECTIONSTRING, container_name=CONTAINER_NAME, blob_name=blobName)\r\n",
+					"try:\r\n",
+					"    blob.upload_blob(output)\r\n",
+					"except: \r\n",
+					"    print(\"Blob already exists, no need to update\")"
+				],
+				"attachments": null,
+				"execution_count": 29
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					""
+				],
+				"attachments": null,
+				"execution_count": null
+			}
+		]
+	}
+}

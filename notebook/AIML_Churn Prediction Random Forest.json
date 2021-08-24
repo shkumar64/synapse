@@ -1,0 +1,1097 @@
+{
+	"name": "AIML_Churn Prediction Random Forest",
+	"properties": {
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "fsi",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2
+		},
+		"metadata": {
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/4f560746-383b-468f-bdfa-bc5acc08a8f1/resourceGroups/DDiB-FSI-Lab/providers/Microsoft.Synapse/workspaces/synapsefsibnkhackbrku4oli5l4c2/bigDataPools/fsi",
+				"name": "fsi",
+				"type": "Spark",
+				"endpoint": "https://synapsefsibnkhackbrku4oli5l4c2.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/fsi",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "2.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28
+			}
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"# Churn Prediction for Deposits\r\n",
+					"\r\n",
+					"\r\n",
+					"<h3><span style=\"color: #117d30;\"> Using RandomForest Classifier </span></h3>"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"\r\n",
+					"## Overview\r\n",
+					"# \r\n",
+					"\r\n",
+					"\r\n",
+					"MMLSpark is an ecosystem of tools aimed towards expanding the distributed computing framework Apache Spark in several new directions. MMLSpark adds many deep learning and data science tools to the Spark ecosystem, including seamless integration of Spark Machine Learning pipelines with Microsoft Cognitive Toolkit (CNTK), LightGBM, RandomForestClassifiers and OpenCV. These tools enable powerful and highly-scalable predictive and analytical models for a variety of datasources.\r\n",
+					"\r\n",
+					"This notebook presents Data Science Workflow for Bank Marketing Dataset Azure using MMLSpark. This is a direct marketing campaign's (phone calls) dataset of a Portuguese banking institution. The goal is to predict Customer Acquisition Churn, that is whether a customer will subscribe the term deposit, based on the campaign data."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Set-up\r\n",
+					"\r\n",
+					"Defining storage, file path and file name for raw input as well as processed output\r\n",
+					""
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## *****For Demonstration purpose only, Please customize as per your enterprise security needs and compliances***** \n",
+					"Disclaimer: By accessing this code, you acknowledge the code is made available for presentation and demonstration purposes only and that the code: (1) is not subject to SOC 1 and SOC 2 compliance audits; (2) is not designed or intended to be a substitute for the professional advice, diagnosis, treatment, or judgment of a certified financial services professional; (3) is not designed, intended or made available as a medical device; and (4) is not designed or intended to be a substitute for professional medical advice, diagnosis, treatment or judgement. Do not use this code to replace, substitute, or provide professional financial advice or judgment, or to replace, substitute or provide medical advice, diagnosis, treatment or judgement. You are solely responsible for ensuring the regulatory, legal, and/or contractual compliance of any use of the code, including obtaining any authorizations or consents, and any solution you choose to build that incorporates this code in whole or in part. \n"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Importing Libraries"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"import matplotlib.pyplot as plt \r\n",
+					"import seaborn as sns\r\n",
+					"import numpy as np\r\n",
+					"import pandas as pd"
+				],
+				"attachments": null,
+				"execution_count": 2
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Create Connection and Make it a Data Frame"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"from azure.storage.blob import ContainerClient, BlobClient\r\n",
+					"import pandas as pd\r\n",
+					"from io import BytesIO\r\n",
+					"\r\n",
+					"CONNECTIONSTRING = 'DefaultEndpointsProtocol=https;AccountName=stfsibnkhackbrku4oli5l4c;AccountKey=SgNgr55lJr1ow65alp/+5tOh/VhkqoWkXV6t1U9/0mx+A5+jPq9ovyNrMHD+liY4+482tvUUbWP63Oj1Jla8kg==;EndpointSuffix=core.windows.net'\r\n",
+					"CONTAINER_NAME = 'retail-banking-customer-churn'\r\n",
+					"\r\n",
+					"BLOBNAME = 'retail_banking_customer_churn_data.csv'\r\n",
+					"blob = BlobClient.from_connection_string(conn_str=CONNECTIONSTRING, container_name=CONTAINER_NAME, blob_name=BLOBNAME)\r\n",
+					"blob_data = blob.download_blob()\r\n",
+					"BytesIO(blob_data.content_as_bytes())\r\n",
+					"churn_df = pd.read_csv(BytesIO(blob_data.content_as_bytes()))"
+				],
+				"attachments": null,
+				"execution_count": 3
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Data Frame"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"churn_df"
+				],
+				"attachments": null,
+				"execution_count": 4
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Convert to a Pyspark Data Frame"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"spark_churn_df=spark.createDataFrame(churn_df) \r\n",
+					"spark_churn_df.printSchema()\r\n",
+					"spark_churn_df.show(5)"
+				],
+				"attachments": null,
+				"execution_count": 5
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Exploratory Data Analysis"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"# View the Pyspark Data Frame\r\n",
+					"\r\n",
+					"display(spark_churn_df)"
+				],
+				"attachments": null,
+				"execution_count": 6
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Find dimensionality of a pyspark data frame"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"# Function to print shape of dataframe\r\n",
+					"def df_shape(spark_churn_df):\r\n",
+					"    return (spark_churn_df.count(), len(spark_churn_df.columns))\r\n",
+					"\r\n",
+					"print(\"shape of Dataset\",df_shape(spark_churn_df))"
+				],
+				"attachments": null,
+				"execution_count": 7
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"# Summary statistics\r\n",
+					"\r\n",
+					"display(spark_churn_df.summary())"
+				],
+				"attachments": null,
+				"execution_count": 8
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Visualizing the Churn paired with Data"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Using pyspark to attmept the visualization of our data"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"import pyspark.sql.functions as F\r\n",
+					"display(spark_churn_df.where(F.col(\"y\").isNotNull()).groupBy('y').count().sort('count', ascending = False))\r\n",
+					""
+				],
+				"attachments": null,
+				"execution_count": 9
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"And onto the more appropiate and flexible libraries for data visualization"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"spark_churn_df = spark_churn_df.withColumnRenamed('y','Churn')\r\n",
+					"spark_churn_df = spark_churn_df.withColumnRenamed('emp.var.rate','emp_var_rate')\r\n",
+					"spark_churn_df = spark_churn_df.withColumnRenamed('cons.price.idx','cons_price_idx')\r\n",
+					"spark_churn_df = spark_churn_df.withColumnRenamed('cons.conf.idx','cons_conf_idx')\r\n",
+					"spark_churn_df = spark_churn_df.withColumnRenamed('nr.employed','nr_employed')"
+				],
+				"attachments": null,
+				"execution_count": 10
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Job and Churn"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"class_order = list(set(churn_df['job'].values))\r\n",
+					"hue_order = list(set(churn_df['y'].values))\r\n",
+					"\r\n",
+					"plt.figure(figsize=(12,8))\r\n",
+					"chart = sns.countplot(data=churn_df,x='job',order = class_order, hue = 'y')\r\n",
+					"chart.set_xticklabels(chart.get_xticklabels(), rotation=45)\r\n",
+					"plt.show()"
+				],
+				"attachments": null,
+				"execution_count": 11
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Looking at the visualization one could come to the conclusion that management would come forward as the profession where the churn rate would be the highest and a blue-collar and admin professions where churn rate would be the lowest."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Marital & Churn"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"class_order = list(set(churn_df['marital'].values))\r\n",
+					"hue_order = list(set(churn_df['y'].values))\r\n",
+					"\r\n",
+					"plt.figure(figsize=(12,8))\r\n",
+					"chart = sns.countplot(data=churn_df,x='marital',order = class_order, hue = 'y')\r\n",
+					"chart.set_xticklabels(chart.get_xticklabels(), rotation=45)\r\n",
+					"plt.show()"
+				],
+				"attachments": null,
+				"execution_count": 12
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Married people have the highest amount of skewness by far in terms of count, whereas the churn rate is not very different between divorced and single customers."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Churn and Contact"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"class_order = list(set(churn_df['contact'].values))\r\n",
+					"hue_order = list(set(churn_df['y'].values))\r\n",
+					"\r\n",
+					"plt.figure(figsize=(12,8))\r\n",
+					"chart = sns.countplot(data=churn_df,x='contact',order = class_order, hue = 'y')\r\n",
+					"chart.set_xticklabels(chart.get_xticklabels(), rotation=45)\r\n",
+					"plt.show()"
+				],
+				"attachments": null,
+				"execution_count": 13
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"The churn and the method of contact also seems to have large disparity between them, with far more churning of clients than not whether by cellphone device or telephone"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Rename the columns"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"spark_churn_df = spark_churn_df.withColumnRenamed('y','Churn')\r\n",
+					"spark_churn_df = spark_churn_df.withColumnRenamed('emp.var.rate','emp_var_rate')\r\n",
+					"spark_churn_df = spark_churn_df.withColumnRenamed('cons.price.idx','cons_price_idx')\r\n",
+					"spark_churn_df = spark_churn_df.withColumnRenamed('cons.conf.idx','cons_conf_idx')\r\n",
+					"spark_churn_df = spark_churn_df.withColumnRenamed('nr.employed','nr_employed')"
+				],
+				"attachments": null,
+				"execution_count": 14
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Finding whether or not there are any null values in the data"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"from pyspark.sql.functions import isnull, when, count, col\r\n",
+					"#finding null values, the table should show none\r\n",
+					"\r\n",
+					"display(spark_churn_df.select([count(when(isnull(index)| col(index).isNull(), index)).alias(index) for index in spark_churn_df.columns]))\r\n",
+					""
+				],
+				"attachments": null,
+				"execution_count": 15
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"#### Selecting all the columns that consist of string values for graphing"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"columnList = [item[0] for item in spark_churn_df.dtypes if item[1].startswith('string')]"
+				],
+				"attachments": null,
+				"execution_count": 16
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"columnList"
+				],
+				"attachments": null,
+				"execution_count": 17
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Visualizing data in different ways"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"# Making a line chart with the job category to show their count in the data\r\n",
+					"\r\n",
+					"display(spark_churn_df.select([i for i in spark_churn_df.columns if i in columnList]))\r\n",
+					"#spark_churn_df.select([i for i in spark_churn_df.columns if i in columnList])"
+				],
+				"attachments": null,
+				"execution_count": 18
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Multiple keys in graphs"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"# Seeing how a groups of jobs and their education level compare to each other by count\r\n",
+					"\r\n",
+					"df_grouped = spark_churn_df.select([c for c in spark_churn_df.columns if c in columnList])\r\n",
+					"display(df_grouped)"
+				],
+				"attachments": null,
+				"execution_count": 19
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"data = spark_churn_df\r\n",
+					"#display(data)\r\n",
+					"df_shape(data)"
+				],
+				"attachments": null,
+				"execution_count": 20
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"sns.set(style=\"ticks\", context=\"talk\") \r\n",
+					"sns.set_context(\"paper\", font_scale = 1.25)\r\n",
+					"plt.style.use(\"dark_background\")\r\n",
+					"# contoliing plot size \r\n",
+					"fig, axs = plt.subplots(2,1, figsize=(14,16))\r\n",
+					"\r\n",
+					"sns.lineplot(x = 'month', y ='y', color = '#FF0000', linewidth = 0.5,  data = churn_df, ax=axs[0] )\r\n",
+					"sns.lineplot(x = 'month', y ='contact', color = '#E67E22', linewidth = 0.5,  data = churn_df, ax=axs[1])\r\n",
+					"plt.show()"
+				],
+				"attachments": null,
+				"execution_count": 21
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"### Feature Engineering Plan"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"# Apply get dummies for the other columns\r\n",
+					"names = ['default', 'day_of_week', 'contact', 'pdays', 'poutcome', 'emp.var.rate', 'cons.price.idx', 'nr.employed']\r\n",
+					"data = pd.get_dummies(data=churn_df, columns=names)\r\n",
+					""
+				],
+				"attachments": null,
+				"execution_count": 22
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"Add a column with binary variables to be used in the model and change into a pyspark data frame"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"churn_df['Churn'] = churn_df['y'].map({'yes':1, 'no':0})\r\n",
+					"churn_df"
+				],
+				"attachments": null,
+				"execution_count": 23
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": false
+				},
+				"source": [
+					"spark_churn_df = spark.createDataFrame(churn_df)\r\n",
+					"display(spark_churn_df.groupby('Churn').count())"
+				],
+				"attachments": null,
+				"execution_count": 24
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"corr = churn_df.corr()\r\n",
+					"sns.reset_defaults()\r\n",
+					"sns.heatmap(corr[(corr>0.3)|(corr<-0.3)],vmax=1,vmin=-1,cmap='Blues',annot=True)\r\n",
+					"plt.title('Features Corelation')\r\n",
+					"plt.show()"
+				],
+				"attachments": null,
+				"execution_count": 25
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"spark_churn_df=spark.createDataFrame(churn_df) "
+				],
+				"attachments": null,
+				"execution_count": 34
+			},
+			{
+				"cell_type": "markdown",
+				"metadata": {
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					}
+				},
+				"source": [
+					"## Random Forest Classifier"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"from pyspark.ml.linalg import Vectors\r\n",
+					"from pyspark.ml.feature import VectorAssembler\r\n",
+					"from pyspark.ml.classification import RandomForestClassifier\r\n",
+					"from pyspark.ml.evaluation import MulticlassClassificationEvaluator\r\n",
+					"\r\n",
+					"# transformer\r\n",
+					"vector_assembler = VectorAssembler(inputCols=[\"Churn\"],outputCol=\"features\")\r\n",
+					"df_temp = vector_assembler.transform(spark_churn_df)\r\n",
+					"df_temp.show(3)\r\n",
+					"\r\n",
+					"\r\n",
+					"# drop the original data features column\r\n",
+					"df = df_temp.drop('Churn')\r\n",
+					"df.show(3)\r\n",
+					"from pyspark.ml.feature import StringIndexer\r\n",
+					"\r\n",
+					"\r\n",
+					"# estimator\r\n",
+					"l_indexer = StringIndexer(inputCol=\"contact\", outputCol=\"labelIndex\")\r\n",
+					"df = l_indexer.fit(df).transform(df)\r\n",
+					"df.show(3)\r\n",
+					"\r\n",
+					"\r\n",
+					"# data splitting\r\n",
+					"(training,testing) = df.randomSplit([0.8,0.2])"
+				],
+				"attachments": null,
+				"execution_count": 35
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"# train our model using training data\r\n",
+					"rf = RandomForestClassifier(labelCol=\"labelIndex\",featuresCol=\"features\", numTrees=10)\r\n",
+					"model = rf.fit(training)\r\n",
+					"# test our model and make predictions using testing data\r\n",
+					"predictions = model.transform(testing)\r\n",
+					"predictions.select(\"prediction\", \"labelIndex\").show(5)\r\n",
+					"# evaluate the performance of the classifier\r\n",
+					"evaluator = MulticlassClassificationEvaluator(labelCol=\"labelIndex\",predictionCol=\"prediction\", metricName=\"accuracy\")\r\n",
+					"accuracy = evaluator.evaluate(predictions)\r\n",
+					"print(\"Test Error = %g\" % (1.0 - accuracy))\r\n",
+					"print(\"Accuracy = %g \" % accuracy)"
+				],
+				"attachments": null,
+				"execution_count": 36
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [],
+				"attachments": null,
+				"execution_count": null
+			}
+		]
+	}
+}

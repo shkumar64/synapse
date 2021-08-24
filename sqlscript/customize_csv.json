@@ -1,0 +1,16 @@
+{
+	"name": "customize_csv",
+	"properties": {
+		"content": {
+			"query": "TRUNCATE TABLE [#TABLE_NAME#]\r\nCOPY INTO [#TABLE_NAME#]\r\nFROM 'https://stfsibnkhackbrku4oli5l4c.blob.core.windows.net/customcsv/#TABLE_NAME#.csv'\r\nWITH (\r\n\tFILE_TYPE = 'CSV',\r\n\tFIRSTROW = 2\r\n)\r\n",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"name": "FsiDW",
+				"type": "SqlPool"
+			}
+		},
+		"type": "SqlQuery"
+	}
+}

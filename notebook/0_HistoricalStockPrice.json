@@ -1,0 +1,146 @@
+{
+	"name": "0_HistoricalStockPrice",
+	"properties": {
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "fsi",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2
+		},
+		"metadata": {
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/4f560746-383b-468f-bdfa-bc5acc08a8f1/resourceGroups/DDiB-FSI-Lab/providers/Microsoft.Synapse/workspaces/synapsefsibnkhackbrku4oli5l4c2/bigDataPools/fsi",
+				"name": "fsi",
+				"type": "Spark",
+				"endpoint": "https://synapsefsibnkhackbrku4oli5l4c2.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/fsi",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "2.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28
+			}
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## *****For Demonstration purpose only, Please customize as per your enterprise security needs and compliances***** \n",
+					"Disclaimer: By accessing this code, you acknowledge the code is made available for presentation and demonstration purposes only and that the code: (1) is not subject to SOC 1 and SOC 2 compliance audits; (2) is not designed or intended to be a substitute for the professional advice, diagnosis, treatment, or judgment of a certified financial services professional; (3) is not designed, intended or made available as a medical device; and (4) is not designed or intended to be a substitute for professional medical advice, diagnosis, treatment or judgement. Do not use this code to replace, substitute, or provide professional financial advice or judgment, or to replace, substitute or provide medical advice, diagnosis, treatment or judgement. You are solely responsible for ensuring the regulatory, legal, and/or contractual compliance of any use of the code, including obtaining any authorizations or consents, and any solution you choose to build that incorporates this code in whole or in part. \n"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"#Import the required libraries\n",
+					"import pandas as pd\n",
+					"import yfinance as yf\n",
+					"#from yahoofinancials import YahooFinancials\n",
+					"from datetime import datetime"
+				],
+				"attachments": null,
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"diagram": {
+						"activateDiagramType": 1,
+						"chartConfig": {
+							"category": "bar",
+							"keys": [
+								"Portfolio"
+							],
+							"values": [
+								"Portfolio"
+							],
+							"yLabel": "Portfolio",
+							"xLabel": "Portfolio",
+							"aggregation": "COUNT",
+							"aggByBackend": false
+						},
+						"aggData": "{\"Portfolio\":{\"Covid\":15,\"LongTerm\":9}}",
+						"isSummary": false,
+						"previewData": {
+							"filter": null
+						},
+						"isSql": false
+					},
+					"collapsed": false
+				},
+				"source": [
+					"# Read out CSV file with list of all tickers\n",
+					"nqSdf = spark.read.load('abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/Portfolio/PortfolioCik.csv', \n",
+					"    format='csv', \n",
+					"    sep=\",\",\n",
+					"    header=True)\n",
+					"\n",
+					"portfolioData = nqSdf.toPandas()\n",
+					"display(portfolioData)"
+				],
+				"attachments": null,
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"from azure.storage.blob import BlobServiceClient, ContainerClient\n",
+					"from azure.storage.blob import BlobClient\n",
+					"\n",
+					"accountName = \"stfsibnkhackbrku4oli5l4c\"\n",
+					"accountKey = \"SgNgr55lJr1ow65alp/+5tOh/VhkqoWkXV6t1U9/0mx+A5+jPq9ovyNrMHD+liY4+482tvUUbWP63Oj1Jla8kg==\"\n",
+					"containerName = \"risk\"\n",
+					"connectionString = \"DefaultEndpointsProtocol=https;AccountName=stfsibnkhackbrku4oli5l4c;AccountKey=SgNgr55lJr1ow65alp/+5tOh/VhkqoWkXV6t1U9/0mx+A5+jPq9ovyNrMHD+liY4+482tvUUbWP63Oj1Jla8kg==;EndpointSuffix=core.windows.net\""
+				],
+				"attachments": null,
+				"execution_count": 3
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# Get the stock price for all tickers and write it to CSV file\n",
+					"#yahoo_financials = YahooFinancials(tickerTop10)\n",
+					"\n",
+					"#data = yahoo_financials.get_historical_price_data(start_date='2019-01-01', \n",
+					"#                                                  end_date='2019-01-31', \n",
+					"#                                                  time_interval='daily')\n",
+					"finalColNames = [\"Portfolio\", \"Sector\", \"Cik\", \"Date\", \"Ticker\", \"AdjClose\"]\n",
+					"\n",
+					"for index, ticker in portfolioData.iterrows():\n",
+					"    finalDf = pd.DataFrame(columns = finalColNames)\n",
+					"    stockData = yf.download(ticker['Ticker'], period=\"max\", interval='1d', group_by='ticker', threads=True, progress=True)\n",
+					"    for index, row in stockData.iterrows():\n",
+					"        finalDf = finalDf.append({'Portfolio' : str(ticker['Portfolio']), 'Sector' : ticker['Sector'], 'Cik' : ticker['CIK'], 'Date' : index.date() , 'Ticker' : ticker['Ticker'], 'AdjClose' : row['Adj Close'] } , ignore_index=True)\n",
+					"    output = finalDf.to_csv (index=False, header=True, encoding = \"utf-8\")\n",
+					"    blobName = \"PortfolioQuotes/HistoricalData/\" + ticker['Ticker'] + \".csv\"\n",
+					"    blob = BlobClient.from_connection_string(conn_str=connectionString, container_name=containerName, blob_name=blobName)\n",
+					"    blob.upload_blob(output)\n",
+					"    #blobService.create_blob_from_text(containerName, blobName, output)\n",
+					"\n",
+					""
+				],
+				"attachments": null,
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"source": [],
+				"attachments": null,
+				"execution_count": null
+			}
+		]
+	}
+}

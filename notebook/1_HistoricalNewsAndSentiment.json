@@ -1,0 +1,187 @@
+{
+	"name": "1_HistoricalNewsAndSentiment",
+	"properties": {
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "fsi",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2
+		},
+		"metadata": {
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/4f560746-383b-468f-bdfa-bc5acc08a8f1/resourceGroups/DDiB-FSI-Lab/providers/Microsoft.Synapse/workspaces/synapsefsibnkhackbrku4oli5l4c2/bigDataPools/fsi",
+				"name": "fsi",
+				"type": "Spark",
+				"endpoint": "https://synapsefsibnkhackbrku4oli5l4c2.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/fsi",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "2.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28
+			}
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## *****For Demonstration purpose only, Please customize as per your enterprise security needs and compliances***** \n",
+					"Disclaimer: By accessing this code, you acknowledge the code is made available for presentation and demonstration purposes only and that the code: (1) is not subject to SOC 1 and SOC 2 compliance audits; (2) is not designed or intended to be a substitute for the professional advice, diagnosis, treatment, or judgment of a certified financial services professional; (3) is not designed, intended or made available as a medical device; and (4) is not designed or intended to be a substitute for professional medical advice, diagnosis, treatment or judgement. Do not use this code to replace, substitute, or provide professional financial advice or judgment, or to replace, substitute or provide medical advice, diagnosis, treatment or judgement. You are solely responsible for ensuring the regulatory, legal, and/or contractual compliance of any use of the code, including obtaining any authorizations or consents, and any solution you choose to build that incorporates this code in whole or in part. \n"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"diagram": {
+						"activateDiagramType": 1,
+						"chartConfig": {
+							"category": "bar",
+							"keys": [
+								"Portfolio"
+							],
+							"values": [
+								"Portfolio"
+							],
+							"yLabel": "Portfolio",
+							"xLabel": "Portfolio",
+							"aggregation": "COUNT",
+							"aggByBackend": false
+						},
+						"aggData": "{\"Portfolio\":{\"Covid\":15,\"LongTerm\":9}}",
+						"isSummary": false,
+						"previewData": {
+							"filter": null
+						},
+						"isSql": false
+					},
+					"collapsed": false
+				},
+				"source": [
+					"# Read out CSV file with list of all tickers\n",
+					"nqSdf = spark.read.load('abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/Portfolio/PortfolioCik.csv', \n",
+					"    format='csv', \n",
+					"    sep=\",\",\n",
+					"    header=True)\n",
+					"\n",
+					"portfolioData = nqSdf.toPandas()\n",
+					"display(portfolioData)"
+				],
+				"attachments": null,
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"from azure.storage.blob import BlobServiceClient, ContainerClient\n",
+					"from azure.storage.blob import BlobClient\n",
+					"\n",
+					"accountName = \"stfsibnkhackbrku4oli5l4c\"\n",
+					"accountKey = \"SgNgr55lJr1ow65alp/+5tOh/VhkqoWkXV6t1U9/0mx+A5+jPq9ovyNrMHD+liY4+482tvUUbWP63Oj1Jla8kg==\"\n",
+					"containerName = \"risk\"\n",
+					"connectionString = \"DefaultEndpointsProtocol=https;AccountName=stfsibnkhackbrku4oli5l4c;AccountKey=SgNgr55lJr1ow65alp/+5tOh/VhkqoWkXV6t1U9/0mx+A5+jPq9ovyNrMHD+liY4+482tvUUbWP63Oj1Jla8kg==;EndpointSuffix=core.windows.net\""
+				],
+				"attachments": null,
+				"execution_count": 3
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"import urllib.parse, base64\n",
+					"import json\n",
+					"import requests\n",
+					"import pandas as pd\n",
+					"import datetime\n",
+					"import pytz\n",
+					"from azure.core.credentials import AzureKeyCredential\n",
+					"from azure.ai.textanalytics import TextAnalyticsClient\n",
+					"\n",
+					"search_url = \"https://api.bing.microsoft.com/v7.0/news/search\"\n",
+					"sentiment_url = 'https://cog-all-brku4oli5l4c2-bnkhack.cognitiveservices.azure.com/'\n",
+					"sentimentKey = '3e9db80bed824b278b0eeb4b0e728f48'          # Azure Cognitive API Key, replace with your own key\n",
+					"searchKey = '9B2CF73E8F407C02F61B30575A91F962'\n",
+					"\n",
+					"credential = AzureKeyCredential(sentimentKey)\n",
+					"text_analytics_client = TextAnalyticsClient(endpoint=sentiment_url, credential=credential)"
+				],
+				"attachments": null,
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"#for row in nqDf.rdd.collect():\n",
+					"for index, ticker in portfolioData.iterrows():\n",
+					"\n",
+					"    dfObj = pd.DataFrame(columns=['Symbol', 'Name', 'Url', 'Date_Published', 'Description', 'Sentiment', 'Positive_Score', 'Negative_Score', 'Neutral_Score'])\n",
+					"\n",
+					"    headers = {'Ocp-Apim-Subscription-Key':searchKey, \\\n",
+					"                'Content-type': 'application/json',\\\n",
+					"                'Accept': 'application/json'}\n",
+					"\n",
+					"    symbol = ticker['Ticker']\n",
+					"\n",
+					"    params = urllib.parse.urlencode({\n",
+					"        # Request parameters\n",
+					"        'q': ticker['Ticker'],\n",
+					"        'offset': '0',\n",
+					"        'mkt': 'en-us',\n",
+					"        'freshness': 'Month',\n",
+					"        'count' : 100\n",
+					"    })\n",
+					"\n",
+					"    response = requests.get(search_url, headers=headers, params=params)\n",
+					"    response.raise_for_status()\n",
+					"    search_results = response.json()\n",
+					"    #print(json.dumps(search_results['value'], indent=2, sort_keys=True))\n",
+					"    for value in search_results['value']:\n",
+					"        description = value['description']\n",
+					"        url = value['url']\n",
+					"        name = value['name']\n",
+					"        publishedDate = value['datePublished']\n",
+					"    \n",
+					"        documents = [\"'\" + description + \"'\"]\n",
+					"\n",
+					"        response = text_analytics_client.analyze_sentiment(documents, language=\"en\")\n",
+					"        result = [doc for doc in response if not doc.is_error]\n",
+					"        #print(result)\n",
+					"\n",
+					"        for doc in result:\n",
+					"            #print(\"Overall sentiment: {}\".format(doc.sentiment))\n",
+					"            #print(\"Scores: positive={}; neutral={}; negative={} \\n\".format(\n",
+					"            #    doc.confidence_scores.positive,\n",
+					"            #    doc.confidence_scores.neutral,\n",
+					"            #    doc.confidence_scores.negative,\n",
+					"            #))\n",
+					"            dfObj = dfObj.append({'Symbol': symbol, 'Name': name, 'Url': url, 'Date_Published': publishedDate, 'Description' : description, 'Sentiment': doc.sentiment, 'Positive_Score':doc.confidence_scores.positive, 'Negative_Score': doc.confidence_scores.negative, 'Neutral_Score': doc.confidence_scores.neutral}, ignore_index=True)\n",
+					"    \n",
+					"    currDate = datetime.datetime.now(pytz.timezone('US/Central'))\n",
+					"    output = dfObj.to_csv (index=False, header=True, encoding = \"utf-8\")\n",
+					"    blobName = \"News/HistoricalData/\" + ticker['Ticker'] + \".csv\"\n",
+					"    blob = BlobClient.from_connection_string(conn_str=connectionString, container_name=containerName, blob_name=blobName)\n",
+					"    blob.upload_blob(output)"
+				],
+				"attachments": null,
+				"execution_count": 5
+			},
+			{
+				"cell_type": "code",
+				"source": [],
+				"attachments": null,
+				"execution_count": null
+			}
+		]
+	}
+}

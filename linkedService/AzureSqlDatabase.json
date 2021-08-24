@@ -1,0 +1,16 @@
+{
+	"name": "AzureSqlDatabase",
+	"type": "Microsoft.Synapse/workspaces/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "AzureSqlDatabase",
+		"typeProperties": {
+			"connectionString": "integrated security=False;encrypt=True;connection timeout=30;data source=dbserver-marketingdata-brku4oli5l4c2-bnkhack.database.windows.net;initial catalog=db-geospatial;user id=labsqladmin",
+			"encryptedCredential": "p@ssw0rd"
+		},
+		"connectVia": {
+			"referenceName": "AutoResolveIntegrationRuntime",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}

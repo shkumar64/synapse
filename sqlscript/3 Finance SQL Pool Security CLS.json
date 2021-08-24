@@ -1,0 +1,16 @@
+{
+	"name": "3 Finance SQL Pool Security CLS",
+	"properties": {
+		"content": {
+			"query": "\r\nselect  Top 100 * from Campaign_Analytics;\r\n\r\nSELECT Name as [User] FROM sys.sysusers WHERE name IN (N'HeadOfFinancialIntelligence',N'MarketingOfficerMiami')\r\n\r\nGRANT SELECT ON Campaign_Analytics ([Region],[Country],[Campaign_Name],[Revenue_Target],[City],[State]) TO MarketingOfficerMiami;\r\n\r\nEXECUTE AS USER ='MarketingOfficerMiami'\r\nselect * from Campaign_Analytics\r\n\r\nEXECUTE AS USER ='MarketingOfficerMiami'\r\nselect [Region],[Country],[Campaign_Name],[Revenue_Target],[City],[State] from Campaign_Analytics\r\n\r\nRevert;\r\nGRANT SELECT ON Campaign_Analytics TO HeadOfFinancialIntelligence;  --Full access to all columns.\r\n\r\nEXECUTE AS USER ='HeadOfFinancialIntelligence'\r\nselect * from Campaign_Analytics\r\n\r\nRevert;",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"name": "FsiDW",
+				"type": "SqlPool"
+			}
+		},
+		"type": "SqlQuery"
+	}
+}

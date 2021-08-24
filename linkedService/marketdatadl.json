@@ -1,0 +1,16 @@
+{
+	"name": "marketdatadl",
+	"type": "Microsoft.Synapse/workspaces/linkedservices",
+	"properties": {
+		"annotations": [],
+		"type": "AzureBlobFS",
+		"typeProperties": {
+			"url": "https://stfsibnkhackbrku4oli5l4c.dfs.core.windows.net",
+			"encryptedCredential": "SgNgr55lJr1ow65alp/+5tOh/VhkqoWkXV6t1U9/0mx+A5+jPq9ovyNrMHD+liY4+482tvUUbWP63Oj1Jla8kg=="
+		},
+		"connectVia": {
+			"referenceName": "AutoResolveIntegrationRuntime",
+			"type": "IntegrationRuntimeReference"
+		}
+	}
+}

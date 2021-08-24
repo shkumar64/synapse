@@ -1,0 +1,193 @@
+{
+	"name": "NewsAndSentimentDataValidation",
+	"properties": {
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "fsi",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2
+		},
+		"metadata": {
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/4f560746-383b-468f-bdfa-bc5acc08a8f1/resourceGroups/DDiB-FSI-Lab/providers/Microsoft.Synapse/workspaces/synapsefsibnkhackbrku4oli5l4c2/bigDataPools/fsi",
+				"name": "fsi",
+				"type": "Spark",
+				"endpoint": "https://synapsefsibnkhackbrku4oli5l4c2.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/fsi",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "2.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28
+			}
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## *****For Demonstration purpose only, Please customize as per your enterprise security needs and compliances***** \n",
+					"Disclaimer: By accessing this code, you acknowledge the code is made available for presentation and demonstration purposes only and that the code: (1) is not subject to SOC 1 and SOC 2 compliance audits; (2) is not designed or intended to be a substitute for the professional advice, diagnosis, treatment, or judgment of a certified financial services professional; (3) is not designed, intended or made available as a medical device; and (4) is not designed or intended to be a substitute for professional medical advice, diagnosis, treatment or judgement. Do not use this code to replace, substitute, or provide professional financial advice or judgment, or to replace, substitute or provide medical advice, diagnosis, treatment or judgement. You are solely responsible for ensuring the regulatory, legal, and/or contractual compliance of any use of the code, including obtaining any authorizations or consents, and any solution you choose to build that incorporates this code in whole or in part. \n"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"microsoft": {
+						"language": "python"
+					},
+					"collapsed": false
+				},
+				"source": [
+					"%%pyspark\r\n",
+					"import urllib.parse, base64\r\n",
+					"import json\r\n",
+					"import requests\r\n",
+					"import pandas as pd\r\n",
+					"import datetime\r\n",
+					"import pytz\r\n",
+					"currDate = datetime.datetime.now(pytz.timezone('US/Central'))\r\n",
+					"#output = dfObj.to_csv (index=False, header=True, encoding = \"utf-8\")\r\n",
+					"blobName = \"News/DailyData/\" + str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))\r\n",
+					"print(blobName)\r\n",
+					"df = spark.read.load([\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/AMZN.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/ARE.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/CNP.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/COST.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/CRM.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/CVS.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/DIS.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/DPZ.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/FISV.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/FMC.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/GIS.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/HRL.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/KMB.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/LMT.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/MDLZ.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/MKC.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/MSFT.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/NFLX.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/PG.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/RNG.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/TGT.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/WMT.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/ZM.csv',\r\n",
+					"    'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyData/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))+'/ZS.csv'\r\n",
+					"    ], format='csv'\r\n",
+					"## If?header?exists?uncomment?line?below\r\n",
+					", header=True\r\n",
+					")\r\n",
+					"display(df.limit(10))\r\n",
+					""
+				],
+				"attachments": null,
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "python"
+					},
+					"collapsed": true
+				},
+				"source": [
+					"%%pyspark\r\n",
+					"from pyspark.sql.functions import *\r\n",
+					"from pyspark.sql.types import *\r\n",
+					"\r\n",
+					"import numpy as np\r\n",
+					"\r\n",
+					"pd_df = df.select(\"Symbol\", \"Name\", \"Url\", \"Date_Published\", \"Description\", \"Sentiment\", \"Positive_Score\", \"Negative_Score\", \"Neutral_Score\").toPandas()\r\n",
+					"\r\n",
+					"pd_df.head(10)\r\n",
+					"\r\n",
+					"print(pd_df)\r\n",
+					"\r\n",
+					"\r\n",
+					"pd_df = df.select(\"*\").toPandas()\r\n",
+					"dfjson=pd_df.to_json(orient='records')\r\n",
+					"\r\n",
+					"#print(dfjson)\r\n",
+					""
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"microsoft": {
+						"language": "python"
+					},
+					"collapsed": true
+				},
+				"source": [
+					"%%pyspark\r\n",
+					"df = spark.createDataFrame(pd_df)\r\n",
+					"df.show(5)\r\n",
+					"\r\n",
+					"(df\r\n",
+					" .coalesce(1)\r\n",
+					" .write\r\n",
+					" .mode(\"overwrite\")\r\n",
+					" .option(\"header\", \"true\")\r\n",
+					" .format(\"com.databricks.spark.csv\")\r\n",
+					" .save('abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/News/DailyDataNew/'+str(currDate.year) + \"/\" + str(currDate.strftime(\"%m\")) + \"/\" + str(currDate.strftime(\"%d\"))))"
+				],
+				"attachments": null,
+				"execution_count": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [],
+				"attachments": null,
+				"execution_count": null
+			}
+		]
+	}
+}

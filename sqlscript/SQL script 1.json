@@ -1,0 +1,17 @@
+{
+	"name": "SQL script 1",
+	"properties": {
+		"content": {
+			"query": "CREATE PROCEDURE drop_external_table_if_exists @name SYSNAME\nAS BEGIN\n    IF (0 <> (SELECT COUNT(*) FROM sys.external_tables WHERE name = @name))\n    BEGIN\n        DECLARE @drop_stmt NVARCHAR(200) = N'DROP EXTERNAL TABLE ' + @name; \n        EXEC sp_executesql @tsql = @drop_stmt;\n    END\nEND\nGO\nCREATE PROCEDURE drop_external_file_format_if_exists @name SYSNAME\nAS BEGIN\n    IF (0 <> (SELECT COUNT(*) FROM sys.external_file_formats WHERE name = @name))\n    BEGIN\n        DECLARE @drop_stmt NVARCHAR(200) = N'DROP EXTERNAL FILE FORMAT ' + @name; \n        EXEC sp_executesql @tsql = @drop_stmt;\n    END\nEND\nGO\nCREATE PROCEDURE drop_external_data_source_if_exists @name SYSNAME\nAS BEGIN\n    IF (0 <> (SELECT COUNT(*) FROM sys.external_data_sources WHERE name = @name))\n    BEGIN\n        DECLARE @drop_stmt NVARCHAR(200) = N'DROP EXTERNAL DATA SOURCE ' + @name; \n        EXEC sp_executesql @tsql = @drop_stmt;\n    END\nEND",
+			"metadata": {
+				"language": "sql"
+			},
+			"currentConnection": {
+				"databaseName": "FsiDW",
+				"poolName": "FsiDW"
+			},
+			"resultLimit": 5000
+		},
+		"type": "SqlQuery"
+	}
+}

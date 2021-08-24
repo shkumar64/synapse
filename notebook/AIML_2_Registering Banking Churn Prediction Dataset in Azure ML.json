@@ -1,0 +1,215 @@
+{
+	"name": "AIML_2_Registering Banking Churn Prediction Dataset in Azure ML",
+	"properties": {
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "fsi",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2
+		},
+		"metadata": {
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/4f560746-383b-468f-bdfa-bc5acc08a8f1/resourceGroups/DDiB-FSI-Lab/providers/Microsoft.Synapse/workspaces/synapsefsibnkhackbrku4oli5l4c2/bigDataPools/fsi",
+				"name": "fsi",
+				"type": "Spark",
+				"endpoint": "https://synapsefsibnkhackbrku4oli5l4c2.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/fsi",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "2.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28
+			}
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## Create Azure Machine Learning datasets for Customer Churn prediction\n",
+					"\n",
+					"Azure Machine Learning datasets can be extremely useful for your local or remote experiments. In this notebook, we will do the following things.\n",
+					"\n",
+					"1. Configure workspace using credentials for Azure subscription\n",
+					"2. Download the dataset from ADLS Gen2\n",
+					"3. Upload the featured dataset into the default datastore in Azure\n",
+					"4. Register the featured dataset into Azure"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## *****For Demonstration purpose only, Please customize as per your enterprise security needs and compliances***** \n",
+					"Disclaimer: By accessing this code, you acknowledge the code is made available for presentation and demonstration purposes only and that the code: (1) is not subject to SOC 1 and SOC 2 compliance audits; (2) is not designed or intended to be a substitute for the professional advice, diagnosis, treatment, or judgment of a certified financial services professional; (3) is not designed, intended or made available as a medical device; and (4) is not designed or intended to be a substitute for professional medical advice, diagnosis, treatment or judgement. Do not use this code to replace, substitute, or provide professional financial advice or judgment, or to replace, substitute or provide medical advice, diagnosis, treatment or judgement. You are solely responsible for ensuring the regulatory, legal, and/or contractual compliance of any use of the code, including obtaining any authorizations or consents, and any solution you choose to build that incorporates this code in whole or in part. \n"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## Configure workspace using credentials for Azure subscription\n",
+					"\n",
+					"As part of the setup you have already created a Workspace. To run AutoML, you also need to create an Experiment. An Experiment corresponds to a prediction problem you are trying to solve, while a Run corresponds to a specific approach to the problem."
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# Install the required package\n",
+					"# import pip \n",
+					"# pip.main(['install','azure-storage-blob==2.1.0'])\n",
+					"# !pip install azure-storage-blob==2.1.0\n",
+					"\n",
+					"from azureml.core import Workspace\n",
+					"\n",
+					"subscription_id='4f560746-383b-468f-bdfa-bc5acc08a8f1'\n",
+					"resource_group='DDiB-FSI-Lab'\n",
+					"workspace_name='amlws-brku4oli5l4c2-bnkhack'\n",
+					"\n",
+					"try:\n",
+					"    workspace = Workspace(subscription_id = subscription_id, resource_group = resource_group, workspace_name = workspace_name)\n",
+					"    # write the details of the workspace to a configuration file to the notebook library\n",
+					"    workspace.write_config()\n",
+					"    print(\"Workspace configuration succeeded. Skip the workspace creation steps below\")\n",
+					"except:\n",
+					"    print(\"Workspace not accessible. Change your parameters or create a new workspace below\")"
+				],
+				"attachments": null,
+				"execution_count": 1
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## Download the  dataset from ADLS Gen2"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"from azure.storage.blob import ContainerClient, BlobClient\r\n",
+					"import pandas as pd\r\n",
+					"from io import BytesIO\r\n",
+					"\r\n",
+					"CONNECTIONSTRING = 'DefaultEndpointsProtocol=https;AccountName=stfsiprod;AccountKey=WVrgvqHHELb6+XKiurG3qiPyNf48vF2L5LGpQPtR5n2J6VHPdSex6VN1H7a+73PNFRomme11g/1mVdl32kBiLA==;EndpointSuffix=core.windows.net'\r\n",
+					"CONTAINER_NAME = 'retail-banking-customer-churn'\r\n",
+					"\r\n",
+					"BLOBNAME = 'retail_banking_customer_churn_for_model.csv'\r\n",
+					"blob = BlobClient.from_connection_string(conn_str=CONNECTIONSTRING, container_name=CONTAINER_NAME, blob_name=BLOBNAME)\r\n",
+					"blob_data = blob.download_blob()\r\n",
+					"BytesIO(blob_data.content_as_bytes())\r\n",
+					"# uploading the csv to the ADLSGen2 storage container\r\n",
+					"data = pd.read_csv(BytesIO(blob_data.content_as_bytes()))\r\n",
+					"data.to_csv(BLOBNAME,header=True)"
+				],
+				"attachments": null,
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"jupyter": {
+						"source_hidden": false,
+						"outputs_hidden": false
+					},
+					"nteract": {
+						"transient": {
+							"deleting": false
+						}
+					},
+					"collapsed": true
+				},
+				"source": [
+					"data.head()"
+				],
+				"attachments": null,
+				"execution_count": 3
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## Upload the featured dataset into the default datastore in Azure"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"from shutil import copyfile\n",
+					"from sklearn import datasets\n",
+					"from azureml.core.dataset import Dataset\n",
+					"from scipy import sparse\n",
+					"import os \n",
+					" \n",
+					"\n",
+					"# Create a project_folder if it doesn't exist\n",
+					"if not os.path.isdir('data'):\n",
+					" os.mkdir('data')\n",
+					" \n",
+					"copyfile(\"retail_banking_customer_churn_for_model.csv\", \"data/retail_banking_customer_churn_for_model.csv\") \n",
+					"ds = workspace.get_default_datastore()\n",
+					"ds.upload(src_dir='./data', target_path='retail_banking', overwrite=True, show_progress=True)\n",
+					" \n",
+					"final_df = Dataset.Tabular.from_delimited_files(path=ds.path('retail_banking/retail_banking_customer_churn_for_model.csv'))"
+				],
+				"attachments": null,
+				"execution_count": 5
+			},
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## Register the featured dataset into Azure"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# train_data_registered = Dataset.get_by_name(amlworkspace,\"train_data\",version='latest')\n",
+					"#train_data_registered.unregister_all_versions()\n",
+					"\n",
+					"train_data_registered = final_df.register(workspace=workspace,\n",
+					"                                 name='customer_churn',\n",
+					"                                 description='Synapse Retail Banking Customer Churn Dataset - Original',\n",
+					"                                 tags= {'type': 'Banking', 'date':'2020'},\n",
+					"                                 create_new_version=True)"
+				],
+				"attachments": null,
+				"execution_count": 7
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					""
+				],
+				"attachments": null,
+				"execution_count": null
+			}
+		]
+	}
+}

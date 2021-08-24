@@ -1,0 +1,164 @@
+{
+	"name": "0_PortfolioCik",
+	"properties": {
+		"nbformat": 4,
+		"nbformat_minor": 2,
+		"bigDataPool": {
+			"referenceName": "fsi",
+			"type": "BigDataPoolReference"
+		},
+		"sessionProperties": {
+			"driverMemory": "28g",
+			"driverCores": 4,
+			"executorMemory": "28g",
+			"executorCores": 4,
+			"numExecutors": 2
+		},
+		"metadata": {
+			"language_info": {
+				"name": "python"
+			},
+			"a365ComputeOptions": {
+				"id": "/subscriptions/4f560746-383b-468f-bdfa-bc5acc08a8f1/resourceGroups/DDiB-FSI-Lab/providers/Microsoft.Synapse/workspaces/synapsefsibnkhackbrku4oli5l4c2/bigDataPools/fsi",
+				"name": "fsi",
+				"type": "Spark",
+				"endpoint": "https://synapsefsibnkhackbrku4oli5l4c2.dev.azuresynapse.net/livyApi/versions/2019-11-01-preview/sparkPools/fsi",
+				"auth": {
+					"type": "AAD",
+					"authResource": "https://dev.azuresynapse.net"
+				},
+				"sparkVersion": "2.4",
+				"nodeCount": 3,
+				"cores": 4,
+				"memory": 28
+			}
+		},
+		"cells": [
+			{
+				"cell_type": "markdown",
+				"source": [
+					"## *****For Demonstration purpose only, Please customize as per your enterprise security needs and compliances***** \n",
+					"Disclaimer: By accessing this code, you acknowledge the code is made available for presentation and demonstration purposes only and that the code: (1) is not subject to SOC 1 and SOC 2 compliance audits; (2) is not designed or intended to be a substitute for the professional advice, diagnosis, treatment, or judgment of a certified financial services professional; (3) is not designed, intended or made available as a medical device; and (4) is not designed or intended to be a substitute for professional medical advice, diagnosis, treatment or judgement. Do not use this code to replace, substitute, or provide professional financial advice or judgment, or to replace, substitute or provide medical advice, diagnosis, treatment or judgement. You are solely responsible for ensuring the regulatory, legal, and/or contractual compliance of any use of the code, including obtaining any authorizations or consents, and any solution you choose to build that incorporates this code in whole or in part. \n"
+				],
+				"attachments": null
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# Required packages\n",
+					"import re\n",
+					"import requests\n",
+					"import pandas as pd"
+				],
+				"attachments": null,
+				"execution_count": 1
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"#Define the secURL and the regex to be used\n",
+					"secUrl = 'http://www.sec.gov/cgi-bin/browse-edgar?CIK={}&Find=Search&owner=exclude&action=getcompany'\n",
+					"cikRegEx = re.compile(r'.CIK=(\\d{10}).')"
+				],
+				"attachments": null,
+				"execution_count": 2
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"# Load our data into Dataframe\n",
+					"nqSdf = spark.read.load('abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/Portfolio/Portfolio.csv', \n",
+					"    format='csv', \n",
+					"    sep=\",\",\n",
+					"    header=True)\n",
+					"\n",
+					"nqPdf = nqSdf.toPandas()"
+				],
+				"attachments": null,
+				"execution_count": 3
+			},
+			{
+				"cell_type": "code",
+				"metadata": {
+					"diagram": {
+						"activateDiagramType": 1,
+						"chartConfig": {
+							"category": "bar",
+							"keys": [
+								"Portfolio"
+							],
+							"values": [
+								"Portfolio"
+							],
+							"yLabel": "Portfolio",
+							"xLabel": "Portfolio",
+							"aggregation": "COUNT",
+							"aggByBackend": false
+						},
+						"aggData": "{\"Portfolio\":{\"Covid\":15,\"LongTerm\":9}}",
+						"isSummary": false,
+						"previewData": {
+							"filter": null
+						},
+						"isSql": false
+					},
+					"collapsed": false
+				},
+				"source": [
+					"display(nqPdf)"
+				],
+				"attachments": null,
+				"execution_count": 4
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					"from time import sleep\n",
+					"from azure.storage.blob import (\n",
+					"    BlockBlobService\n",
+					")\n",
+					"\n",
+					"# Create empty data frame\n",
+					"finalColNames = [\"Portfolio\", \"Sector\", \"Ticker\", \"CreatedDate\", \"CIK\"]\n",
+					"finalDf = pd.DataFrame(columns = finalColNames)\n",
+					"\n",
+					"# Iterate through all ticker data to find out the CIK from sec website\n",
+					"for index, ticker in nqPdf.iterrows():\n",
+					"    sleep(2)\n",
+					"    f = requests.get(secUrl.format(ticker['Ticker']), stream=True);\n",
+					"    results = cikRegEx.findall(f.text)\n",
+					"    if len(results):\n",
+					"        finalDf = finalDf.append({'Portfolio' : str(ticker['Portfolio']) , 'Sector' : ticker['Sector'], 'Ticker' : ticker['Ticker'], 'CreatedDate' : ticker['CreatedDate'], 'CIK' : str(results[0]) } , ignore_index=True)\n",
+					"\n",
+					"# Write CSV file \n",
+					"# storage_path = 'abfss://risk@stfsibnkhackbrku4oli5l4c.dfs.core.windows.net/Portfolio/PortfolioCik.csv'\n",
+					"# sDf = spark.createDataFrame(finalDf)\n",
+					"# sDf.coalesce(1).write.mode(\"overwrite\").csv(storage_path, header=\"true\")\n",
+					"output = finalDf.to_csv(index=False, encoding = \"utf-8\")\n",
+					"accountName = \"stfsibnkhackbrku4oli5l4c\"\n",
+					"accountKey = \"SgNgr55lJr1ow65alp/+5tOh/VhkqoWkXV6t1U9/0mx+A5+jPq9ovyNrMHD+liY4+482tvUUbWP63Oj1Jla8kg==\"\n",
+					"containerName = \"risk\"\n",
+					"blobName = \"Portfolio/PortfolioCik.csv\"\n",
+					"\n",
+					"blobService = BlockBlobService(account_name=accountName, account_key=accountKey)\n",
+					"\n",
+					"# Delete existing blob\n",
+					"blobService.delete_blob(containerName,blobName,snapshot=None)\n",
+					"\n",
+					"blobService.create_blob_from_text(containerName, blobName, output)\n",
+					""
+				],
+				"attachments": null,
+				"execution_count": 5
+			},
+			{
+				"cell_type": "code",
+				"source": [
+					""
+				],
+				"attachments": null,
+				"execution_count": null
+			}
+		]
+	}
+}
